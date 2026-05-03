@@ -6,7 +6,7 @@ from utils.charts import build_cashflow_figure
 from utils.formatting import currency
 from utils.ui import category_color_map, render_header
 
-def _expense_subcategory_breakdown(expense_df):
+def _expense_subcategory_breakdown(expense_df, monthly_income: float = 0.0):
     if expense_df.empty:
         return expense_df
     breakdown = to_numeric_amounts(expense_df)
@@ -14,16 +14,19 @@ def _expense_subcategory_breakdown(expense_df):
     breakdown = breakdown.groupby(["category", "subcategory"], as_index=False)["amount"].sum()
     totals = breakdown.groupby("category")["amount"].transform("sum")
     breakdown["category_share"] = (breakdown["amount"] / totals * 100).fillna(0.0)
+    breakdown["income_share"] = 0.0
+    if monthly_income > 0:
+        breakdown["income_share"] = (breakdown["amount"] / monthly_income * 100).fillna(0.0)
     return breakdown.sort_values(["category", "amount"], ascending=[True, False])
 
 
-def _render_subcategory_section(expense_df) -> None:
+def _render_subcategory_section(expense_df, monthly_income: float) -> None:
     st.subheader("Category Details")
     if expense_df.empty:
         st.info("No expenses to break down by subcategory in this view.")
         return
 
-    sub_breakdown = _expense_subcategory_breakdown(expense_df)
+    sub_breakdown = _expense_subcategory_breakdown(expense_df, monthly_income)
     tree_col, table_col = st.columns([1.15, 1.0])
     fig = px.treemap(
         sub_breakdown,
@@ -40,8 +43,18 @@ def _render_subcategory_section(expense_df) -> None:
     display_df = sub_breakdown.copy()
     display_df["amount"] = display_df["amount"].map(currency)
     display_df["category_share"] = display_df["category_share"].map(lambda value: f"{value:.1f}%")
+    display_df["income_share"] = display_df["income_share"].map(lambda value: f"{value:.1f}%")
     table_col.dataframe(
         display_df.rename(columns={"category": "Category", "subcategory": "Subcategory", "amount": "Amount", "category_share": "Share in category"}),
+        display_df.rename(
+            columns={
+                "category": "Category",
+                "subcategory": "Subcategory",
+                "amount": "Amount",
+                "category_share": "Share in category",
+                "income_share": "Share of monthly income",
+            }
+        ),
         use_container_width=True,
         hide_index=True,
     )
@@ -187,7 +200,7 @@ def render_dashboard(transactions, partner_a_name: str, partner_b_name: str) -> 
         breakdown_col.info("No expenses in this view yet.")
 
     st.divider()
-    _render_subcategory_section(expense_df)
+    _render_subcategory_section(expense_df, view_summary["income"])
 
     st.divider()
     _render_exploration_views(view_df, transactions, selected_owner)
