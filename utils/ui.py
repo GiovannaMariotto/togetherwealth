@@ -24,6 +24,17 @@ SPECIAL_BAR_COLORS = {
     "Over budget": "#B42318",
 }
 
+NON_TRANSACTION_CATEGORIES = {
+    "Income",
+    "Savings",
+    "Investments",
+}
+
+EXPENSE_CATEGORIES = [
+    category for category in DEFAULT_CATEGORIES.keys()
+    if category not in NON_TRANSACTION_CATEGORIES
+]
+
 
 def render_header() -> None:
     st.title("TogetherWealth 💶")
@@ -41,7 +52,6 @@ def category_color_map(categories: list[str]) -> dict[str, str]:
 
 def category_select(label: str, key: str, categories: list[str] | None = None) -> str:
     category_values = categories or list(DEFAULT_CATEGORIES.keys())
-    category_labels = [f"{CATEGORY_ICONS.get(category, '')} {category}".strip() for category in category_values]
     if st.session_state.get(key) not in category_values:
         st.session_state[key] = category_values[0]
     return st.selectbox(
@@ -58,13 +68,22 @@ def categories_for_transaction_type(transaction_type: str) -> list[str]:
         return ["Savings"]
     if transaction_type == TransactionType.investment.value:
         return ["Investments"]
-    return NON_INCOME_CATEGORIES
-
+    if transaction_type == TransactionType.expense.value:
+        return EXPENSE_CATEGORIES
+    return list(DEFAULT_CATEGORIES.keys())
 
 def subcategory_dropdown_with_custom(label: str, category: str, key_prefix: str) -> tuple[str, str]:
     options = [NO_SUBCATEGORY] + get_subcategories(category) + [ADD_NEW_SUBCATEGORY]
+
     select_key = f"{key_prefix}_select"
     new_key = f"{key_prefix}_new"
+    category_key = f"{key_prefix}_category"
+
+    if st.session_state.get(category_key) != category:
+        st.session_state[category_key] = category
+        st.session_state[select_key] = NO_SUBCATEGORY
+        st.session_state[new_key] = ""
+
     if st.session_state.get(select_key) not in options:
         st.session_state[select_key] = NO_SUBCATEGORY
 
@@ -74,6 +93,7 @@ def subcategory_dropdown_with_custom(label: str, category: str, key_prefix: str)
         key=select_key,
         help=f"Only subcategories saved under {category} are shown here.",
     )
+
     if selected == ADD_NEW_SUBCATEGORY:
         new_subcategory = st.text_input(
             "New subcategory",
@@ -81,6 +101,8 @@ def subcategory_dropdown_with_custom(label: str, category: str, key_prefix: str)
             placeholder=f"Add a {category.lower()} subcategory",
         )
         return "", new_subcategory
+
     if selected == NO_SUBCATEGORY:
         return "", ""
+
     return selected, ""

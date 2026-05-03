@@ -174,42 +174,115 @@ def _save_segmented_entries(segment_rows, entry_date, partner, total_source, tot
 
 def _render_quick_split_tab() -> None:
     st.markdown("### Quick split one total between partners")
-    with st.form("quick_entry_form", clear_on_submit=False):
-        col1, col2, col3 = st.columns(3)
-        entry_date = col1.date_input("Date", value=date.today(), key="quick_date")
-        transaction_type = col2.selectbox("Type", [item.value for item in TransactionType], key="quick_type")
-        total_amount = col3.number_input("Total amount (€)", min_value=0.0, step=10.0, key="quick_total")
 
-        split_method = st.selectbox("Split method", ["50/50", "Income-based", "Custom"], key="quick_split")
+    # These stay outside the form so category/subcategory refresh immediately.
+    col1, col2 = st.columns(2)
+
+    transaction_type = col1.selectbox(
+        "Type",
+        [item.value for item in TransactionType],
+        key="quick_type",
+    )
+
+    category = col2.selectbox(
+        "Category",
+        categories_for_transaction_type(transaction_type),
+        key="quick_cat",
+    )
+
+    subcategory, new_subcategory = subcategory_dropdown_with_custom(
+        "Subcategory",
+        category,
+        "quick_subcategory",
+    )
+
+    with st.form("quick_entry_form", clear_on_submit=False):
+        col1, col2 = st.columns(2)
+        entry_date = col1.date_input("Date", value=date.today(), key="quick_date")
+        total_amount = col2.number_input(
+            "Total amount (€)",
+            min_value=0.0,
+            step=10.0,
+            key="quick_total",
+        )
+
+        split_method = st.selectbox(
+            "Split method",
+            ["50/50", "Income-based", "Custom"],
+            key="quick_split",
+        )
+
         income_a = income_b = 0.0
         custom_a_pct = 50.0
-        if split_method == "Income-based":
-            income_a = st.number_input(f"{st.session_state.partner_a_name} monthly income", min_value=0.0, step=100.0)
-            income_b = st.number_input(f"{st.session_state.partner_b_name} monthly income", min_value=0.0, step=100.0)
-        elif split_method == "Custom":
-            custom_a_pct = st.slider(f"{st.session_state.partner_a_name} %", min_value=0, max_value=100, value=50)
 
-        quick_cat_col, quick_sub_col = st.columns(2)
-        with quick_cat_col:
-            category = category_select("Category", "quick_cat", categories_for_transaction_type(transaction_type))
-        with quick_sub_col:
-            subcategory, new_subcategory = subcategory_dropdown_with_custom("Subcategory", category, "quick_subcategory")
-        source = st.text_input("Source / voice", placeholder="e.g., Salary, N26, ETF contribution", key="quick_source")
+        if split_method == "Income-based":
+            income_a = st.number_input(
+                f"{st.session_state.partner_a_name} monthly income",
+                min_value=0.0,
+                step=100.0,
+                key="quick_income_a",
+            )
+            income_b = st.number_input(
+                f"{st.session_state.partner_b_name} monthly income",
+                min_value=0.0,
+                step=100.0,
+                key="quick_income_b",
+            )
+
+        elif split_method == "Custom":
+            custom_a_pct = st.slider(
+                f"{st.session_state.partner_a_name} %",
+                min_value=0,
+                max_value=100,
+                value=50,
+                key="quick_custom_a_pct",
+            )
+
+        source = st.text_input(
+            "Source / voice",
+            placeholder="e.g., Salary, N26, ETF contribution",
+            key="quick_source",
+        )
+
         submitted_quick = st.form_submit_button("Save Split Entries")
 
     if submitted_quick:
         if new_subcategory.strip():
             add_subcategory(category, new_subcategory.strip())
             subcategory = new_subcategory.strip()
+
         elif st.session_state.get("quick_subcategory_select") == ADD_NEW_SUBCATEGORY:
             st.warning("Write a new subcategory name before saving these split entries.")
             st.stop()
-        a_share, b_share = calculate_split(safe_float(total_amount), split_method, safe_float(income_a), safe_float(income_b), safe_float(custom_a_pct))
-        for partner_value, amount_value in [(st.session_state.partner_a_name, a_share), (st.session_state.partner_b_name, b_share)]:
-            save_transaction(entry_date, partner_value, transaction_type, category, subcategory, source, amount_value)
-        st.success(f"Saved split entries: {st.session_state.partner_a_name} {currency(a_share)}, {st.session_state.partner_b_name} {currency(b_share)}.")
-        st.rerun()
 
+        a_share, b_share = calculate_split(
+            safe_float(total_amount),
+            split_method,
+            safe_float(income_a),
+            safe_float(income_b),
+            safe_float(custom_a_pct),
+        )
+
+        for partner_value, amount_value in [
+            (st.session_state.partner_a_name, a_share),
+            (st.session_state.partner_b_name, b_share),
+        ]:
+            save_transaction(
+                entry_date,
+                partner_value,
+                transaction_type,
+                category,
+                subcategory,
+                source,
+                amount_value,
+            )
+
+        st.success(
+            f"Saved split entries: "
+            f"{st.session_state.partner_a_name} {currency(a_share)}, "
+            f"{st.session_state.partner_b_name} {currency(b_share)}."
+        )
+        st.rerun()
 
 def _render_recent_inputs() -> None:
     st.divider()
