@@ -1,8 +1,8 @@
 from __future__ import annotations
-
 import plotly.express as px
 import streamlit as st
 
+import plotly.express as px
 from functions.categories import CATEGORY_ICONS, DEFAULT_CATEGORIES
 from functions.database import get_subcategories
 from models.transaction import TransactionType
@@ -41,6 +41,7 @@ def category_color_map(categories: list[str]) -> dict[str, str]:
 
 def category_select(label: str, key: str, categories: list[str] | None = None) -> str:
     category_values = categories or list(DEFAULT_CATEGORIES.keys())
+    category_labels = [f"{CATEGORY_ICONS.get(category, '')} {category}".strip() for category in category_values]
     if st.session_state.get(key) not in category_values:
         st.session_state[key] = category_values[0]
     return st.selectbox(
@@ -49,7 +50,6 @@ def category_select(label: str, key: str, categories: list[str] | None = None) -
         key=key,
         format_func=lambda category: f"{CATEGORY_ICONS.get(category, '')} {category}".strip(),
     )
-
 
 def categories_for_transaction_type(transaction_type: str) -> list[str]:
     if transaction_type == TransactionType.income.value:

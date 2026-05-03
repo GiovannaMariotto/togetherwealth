@@ -2,6 +2,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from utils.formatting import currency
+from utils.ui import category_color_map
 
 
 def build_cashflow_figure(chart_df: pd.DataFrame) -> go.Figure:
@@ -10,9 +11,9 @@ def build_cashflow_figure(chart_df: pd.DataFrame) -> go.Figure:
         fig.update_layout(title="Income, Expenses, and Net")
         return fig
 
-    text_values = [currency(value) for value in chart_df["display_amount"]]
     final_group = chart_df["color_group"].iloc[-1]
     total_color = "#16803C" if final_group == "Saved" else "#B42318"
+    text_values = [currency(value) for value in chart_df["display_amount"]]
     fig.add_trace(
         go.Waterfall(
             x=chart_df["voice"],
